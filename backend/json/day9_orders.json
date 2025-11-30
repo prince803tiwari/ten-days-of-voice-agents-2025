@@ -1,0 +1,86 @@
+[
+  {
+    "id": "ORD-1",
+    "items": [
+      {
+        "product_id": "mug-002",
+        "name": "Blue Ceramic Mug",
+        "price": 950,
+        "quantity": 1
+      }
+    ],
+    "total": 950,
+    "currency": "INR",
+    "timestamp": "2025-11-30 15:26:07"
+  },
+  {
+    "id": "ORD-2",
+    "items": [
+      {
+        "product_id": "hoodie-001",
+        "name": "Black Hoodie",
+        "price": 1600,
+        "quantity": 2
+      }
+    ],
+    "total": 3200,
+    "currency": "INR",
+    "timestamp": "2025-11-30 15:28:26"
+  },
+  {
+    "id": "ORD-3",
+    "items": [
+      {
+        "product_id": "mug-002",
+        "name": "Blue Ceramic Mug",
+        "price": 950,
+        "quantity": 1
+      }
+    ],
+    "total": 950,
+    "currency": "INR",
+    "timestamp": "2025-11-30 19:04:15"
+  },
+  {
+    "id": "ORD-4",
+    "items": [
+      {
+        "product_id": "hoodie-001",
+        "name": "Black Hoodie",
+        "price": 1600,
+        "quantity": 2
+      }
+    ],
+    "total": 3200,
+    "currency": "INR",
+    "timestamp": "2025-11-30 19:05:00"
+  },
+  {
+    "id": "ORD-5",
+    "items": [
+      {
+        "product_id": "mug-002",
+        "name": "Blue Ceramic Mug",
+        "price": 950,
+        "quantity": 1
+      }
+    ],
+    "total": 950,
+    "currency": "INR",
+    "timestamp": "2025-11-30 19:28:42"
+  },
+  {
+    "id": "ORD-6",
+    "items": [
+      {
+        "product_id": "hoodie-001",
+        "name": "Black Hoodie",
+        "price": 1600,
+        "quantity": 2
+      }
+    ],
+    "total": 3200,
+    "currency": "INR",
+    "timestamp": "2025-11-30 19:29:28"
+  }
+]

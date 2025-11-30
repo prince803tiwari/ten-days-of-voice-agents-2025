@@ -1,6 +1,7 @@
-# Day 8 – Voice Game Master (D&D-Style Adventure)
-import logging
+import json
 import os
+import logging
+from datetime import datetime
 from dotenv import load_dotenv
 
 from livekit.agents import (
@@ -8,66 +9,172 @@ from livekit.agents import (
     AgentSession,
     JobContext,
     JobProcess,
-    MetricsCollectedEvent,
-    RoomInputOptions,
     WorkerOptions,
+    RoomInputOptions,
     cli,
     metrics,
     tokenize,
+    function_tool,
+    RunContext
 )
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
+
+from livekit.plugins import murf, google, deepgram, silero, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+
 
 logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
 
-# ------------------------------------------------------------
-# GAME MASTER AGENT (NO TOOLS NEEDED — primary goal)
-# ------------------------------------------------------------
-class GameMaster(Agent):
+# ---------- Helper: Path resolution ----------
+def abs_path(rel):
+    backend_dir = os.path.dirname(os.path.dirname(__file__))
+    return os.path.join(backend_dir, rel)
+
+
+# ---------- Load Catalog ----------
+CATALOG_PATH = abs_path("json/day9_catalog.json")
+ORDERS_PATH = abs_path("json/day9_orders.json")
+
+
+def load_catalog():
+    try:
+        with open(CATALOG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return []
+
+
+def load_orders():
+    try:
+        with open(ORDERS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return []
+
+
+def save_orders(orders):
+    with open(ORDERS_PATH, "w", encoding="utf-8") as f:
+        json.dump(orders, f, indent=2, ensure_ascii=False)
+
+
+# ---------- Filtering Logic ----------
+def filter_products(filters: dict):
+    products = load_catalog()
+    results = []
+
+    for p in products:
+        ok = True
+
+        if "category" in filters:
+            if p.get("category") != filters["category"]:
+                ok = False
+
+        if "max_price" in filters:
+            if p.get("price", 999999) > filters["max_price"]:
+                ok = False
+
+        if "color" in filters:
+            if p.get("color") != filters["color"]:
+                ok = False
+
+        if ok:
+            results.append(p)
+
+    return results
+
+
+# ---------- Order Creation ----------
+def create_order(items):
+    products = load_catalog()
+    orders = load_orders()
+
+    order_items = []
+    total = 0
+
+    for item in items:
+        pid = item["product_id"]
+        qty = item["quantity"]
+
+        product = next((p for p in products if p["id"] == pid), None)
+        if not product:
+            continue
+
+        order_items.append({
+            "product_id": pid,
+            "name": product["name"],
+            "price": product["price"],
+            "quantity": qty
+        })
+
+        total += product["price"] * qty
+
+    new_order = {
+        "id": f"ORD-{len(orders) + 1}",
+        "items": order_items,
+        "total": total,
+        "currency": "INR",
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+    orders.append(new_order)
+    save_orders(orders)
+
+    return new_order
+
+
+# ---------- Agent ----------
+class EcommerceAgent(Agent):
     def __init__(self):
         super().__init__(
             instructions="""
-            You are a D&D-style Game Master running an interactive fantasy adventure.
-
-            • Universe: A magical fantasy world filled with forests, ruins, dragons, and ancient secrets.  
-            • Tone: Dramatic, immersive, atmospheric.  
-            • Role: Describe scenes, react to the player's actions, and keep the story flowing.  
-            • Always end your message with a clear prompt: “What do you do next?”  
-
-            Rules:
-            - Continue the story logically based on previous player choices.
-            - Introduce characters, locations, items, danger, allies, mysteries.
-            - Keep responses short, rich, exciting, and cinematic.
-            - Do NOT make the player's decisions for them.
-            - Always push the story forward.
-            """
+You are a helpful e-commerce shopping assistant.
+You can filter products (category, price, color) and help place orders.
+Always summarize results clearly.
+""",
         )
 
-    async def on_enter(self) -> None:
-        await self.session.generate_reply(
-            instructions="""
-            Start the adventure immediately.
-            Describe the opening scene of the fantasy world.
-            End with: 'What do you do next?'
-            """
+    @function_tool
+    async def browse_products(self, context: RunContext, filters: dict):
+        """
+        filters example:
+        { "category": "tshirt", "max_price": 1000, "color": "black" }
+        """
+        results = filter_products(filters)
+
+        if not results:
+            return "No products found matching your filters."
+
+        summary = []
+        for p in results:
+            summary.append(f"{p['name']} ({p['price']} INR) – ID: {p['id']}")
+
+        return "Here are the matching products: " + " | ".join(summary)
+
+    @function_tool
+    async def order_product(self, context: RunContext, product_id: str, quantity: int):
+        order = create_order([{"product_id": product_id, "quantity": quantity}])
+        return (
+            f"Order placed! Order ID {order['id']}. "
+            f"Total: {order['total']} INR. "
         )
 
+    @function_tool
+    async def last_order(self, context: RunContext):
+        orders = load_orders()
+        if not orders:
+            return "You haven't bought anything yet."
+        last = orders[-1]
+        items = ", ".join([f"{i['name']} x{i['quantity']}" for i in last["items"]])
+        return f"Your last order was {last['id']}: {items}, total {last['total']} INR."
 
-# ------------------------------------------------------------
-# Prewarm (VAD)
-# ------------------------------------------------------------
+
+# ---------- Entry ----------
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
 
 
-# ------------------------------------------------------------
-# ENTRYPOINT
-# ------------------------------------------------------------
 async def entrypoint(ctx: JobContext):
-    ctx.log_context_fields = {"room": ctx.room.name}
-
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=google.LLM(model="gemini-2.5-flash"),
@@ -75,30 +182,20 @@ async def entrypoint(ctx: JobContext):
             voice="en-US-matthew",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-            text_pacing=True
+            text_pacing=True,
         ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
     )
 
-    usage_collector = metrics.UsageCollector()
-
-    @session.on("metrics_collected")
-    def _collect(ev: MetricsCollectedEvent):
-        metrics.log_metrics(ev.metrics)
-        usage_collector.collect(ev.metrics)
-
-    async def log_usage():
-        logger.info(f"Usage summary: {usage_collector.get_summary()}")
-
-    ctx.add_shutdown_callback(log_usage)
+    agent = EcommerceAgent()
 
     await session.start(
-        agent=GameMaster(),
+        agent=agent,
         room=ctx.room,
         room_input_options=RoomInputOptions(
-            noise_cancellation=noise_cancellation.BVC(),
+            noise_cancellation=noise_cancellation.BVC()
         ),
     )
 

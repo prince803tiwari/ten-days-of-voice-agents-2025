@@ -1,0 +1,44 @@
+[
+  {
+    "id": "mug-001",
+    "name": "Stoneware Coffee Mug",
+    "price": 800,
+    "currency": "INR",
+    "category": "mug",
+    "color": "white"
+  },
+  {
+    "id": "mug-002",
+    "name": "Blue Ceramic Mug",
+    "price": 950,
+    "currency": "INR",
+    "category": "mug",
+    "color": "blue"
+  },
+  {
+    "id": "tshirt-001",
+    "name": "Cotton T-Shirt",
+    "price": 600,
+    "currency": "INR",
+    "category": "tshirt",
+    "color": "black",
+    "size": ["S", "M", "L", "XL"]
+  },
+  {
+    "id": "tshirt-002",
+    "name": "White Oversized Tee",
+    "price": 850,
+    "currency": "INR",
+    "category": "tshirt",
+    "color": "white"
+  },
+  {
+    "id": "hoodie-001",
+    "name": "Black Hoodie",
+    "price": 1600,
+    "currency": "INR",
+    "category": "hoodie",
+    "color": "black",
+    "size": ["M", "L", "XL"]
+  }
+]
